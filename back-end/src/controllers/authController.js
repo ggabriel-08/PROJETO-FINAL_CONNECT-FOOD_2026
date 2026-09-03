@@ -32,7 +32,7 @@ class AuthController {
             const user = users[0];
 
             if (!user.status) {
-                return res.status(403).json({ erro: 'Usuário inativo. Entre em contato com a direção.' });
+                return res.status(403).json({ erro: 'Usuário inativo. Entre em contato com a administração da escola.' });
             }
 
             const isMatch = await bcrypt.compare(inputPassword, user.senha);

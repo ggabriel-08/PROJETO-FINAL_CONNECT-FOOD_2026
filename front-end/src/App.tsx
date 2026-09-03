@@ -8,13 +8,6 @@ import { Header } from './components/common/Header';
 import { LoginView } from './components/auth/LoginView';
 import { ProfileModal } from './components/profile/ProfileModal';
 
-// Direção views
-import { DashboardView } from './components/direccion/DashboardView';
-import { StudentRegisterView } from './components/direccion/StudentRegisterView';
-import { NutritionistRegisterView } from './components/direccion/NutritionistRegisterView';
-import { UserManagementView } from './components/direccion/UserManagementView';
-import { CommentModerationView } from './components/direccion/CommentModerationView';
-
 // Nutricionista views
 import { MenuManagementView } from './components/nutritionist/MenuManagementView';
 
@@ -25,7 +18,6 @@ export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [checkingAuth, setCheckingAuth] = useState<boolean>(true);
 
-  const [users, setUsers] = useState<User[]>([]);
   const [comments, setComments] = useState<CommentItem[]>([]);
   const [mealPlans, setMealPlans] = useState<Record<string, DailyMealPlan>>({});
 
@@ -36,14 +28,12 @@ export const App: React.FC = () => {
   // Helper to load fresh data from API
   const loadBackendData = async () => {
     try {
-      const [fetchedUsers, fetchedComments, fetchedCardapio] = await Promise.all([
-        api.getUsers().catch(() => []),
-        api.getComments().catch(() => []),
-        api.getCardapioSemanal().catch(() => ({ cardapio: null, mealPlans: {} })),
-      ]);
+      const [fetchedComments, fetchedCardapio] = await Promise.all([
+      api.getComments().catch(() => []),
+      api.getCardapioSemanal().catch(() => ({ cardapio: null, mealPlans: {} })),
+    ]);
 
-      setUsers(fetchedUsers || []);
-      setComments(fetchedComments || []);
+    setComments(fetchedComments || []);
       if (fetchedCardapio && fetchedCardapio.mealPlans) {
         setMealPlans(fetchedCardapio.mealPlans);
       }
@@ -60,8 +50,7 @@ export const App: React.FC = () => {
         if (response.usuario) {
           setCurrentUser(response.usuario);
           const role = response.usuario.role;
-          if (role === 'direcao') setActiveTab('painel');
-          else if (role === 'nutricionista') setActiveTab('gerenciar-cardapio');
+          if (role === 'nutricionista') setActiveTab('gerenciar-cardapio');
           else if (role === 'aluno') setActiveTab('cardapio');
 
           await loadBackendData();
@@ -78,15 +67,15 @@ export const App: React.FC = () => {
   }, []);
 
   // Handle login success from LoginView
-  const handleLoginSuccess = async (user: User) => {
-    setCurrentUser(user);
-    const role = user.role;
-    if (role === 'direcao') setActiveTab('painel');
-    else if (role === 'nutricionista') setActiveTab('gerenciar-cardapio');
-    else if (role === 'aluno') setActiveTab('cardapio');
+ const handleLoginSuccess = async (user: User) => {
+  setCurrentUser(user);
+  const role = user.role;
 
-    await loadBackendData();
-  };
+  if (role === 'nutricionista') setActiveTab('gerenciar-cardapio');
+  else if (role === 'aluno') setActiveTab('cardapio');
+
+  await loadBackendData();
+};
 
   const handleLogout = async () => {
     try {
@@ -100,76 +89,6 @@ export const App: React.FC = () => {
     }
   };
 
-  // Add new student
-  const handleAddStudent = async (studentData: Omit<User, 'id' | 'createdAt'> & { password: string }) => {
-  try {
-    const res = await api.createStudent({
-      name: studentData.name,
-      cpf: studentData.cpf,
-      email: studentData.email,
-      password: studentData.password,
-      schoolYear: studentData.schoolYear,
-      dietaryRestriction: studentData.dietaryRestriction,
-    });
-
-    setUsers((prev) => [res.user, ...prev.filter((u) => u.id !== res.user.id)]);
-  } catch (err: any) {
-    alert(err.message || 'Erro ao cadastrar aluno');
-  }
-};
-
-  // Add new nutritionist
-  const handleAddNutritionist = async (
-  nutriData: Omit<User, 'id' | 'createdAt'> & { password: string }
-) => {
-  try {
-    const res = await api.createNutritionist({
-      name: nutriData.name,
-      cpf: nutriData.cpf,
-      email: nutriData.email,
-      password: nutriData.password,
-    });
-
-    setUsers((prev) => [res.user, ...prev.filter((u) => u.id !== res.user.id)]);
-  } catch (err: any) {
-    alert(err.message || 'Erro ao cadastrar nutricionista');
-  }
-};
-
-  // Toggle user status (Ativo / Inativo)
-  const handleToggleUserStatus = async (userId: string) => {
-    try {
-      await api.toggleUserStatus(userId);
-      setUsers((prev) =>
-        prev.map((u) =>
-          u.id === userId ? { ...u, status: u.status === 'Ativo' ? 'Inativo' : 'Ativo' } : u
-        )
-      );
-    } catch (err: any) {
-      alert(err.message || 'Erro ao alterar status do usuário');
-    }
-  };
-
-  // Remove comment (Direção)
-  const handleRemoveComment = async (commentId: string, reason: string) => {
-    try {
-      await api.removeComment(commentId, reason);
-      setComments((prev) =>
-        prev.map((c) =>
-          c.id === commentId
-            ? {
-                ...c,
-                status: 'Removido',
-                comment: 'Comentário inadequado removido pela direção.',
-                removalReason: reason,
-              }
-            : c
-        )
-      );
-    } catch (err: any) {
-      alert(err.message || 'Erro ao remover comentário');
-    }
-  };
 
   // Add student comment
   const handleAddComment = async (commentText: string) => {
@@ -212,12 +131,6 @@ export const App: React.FC = () => {
     return <LoginView onLoginSuccess={handleLoginSuccess} />;
   }
 
-  // Calculate statistics for Direção dashboard
-  const studentCount = users.filter((u) => u.role === 'aluno').length;
-  const nutriCount = users.filter((u) => u.role === 'nutricionista').length;
-  const activeCommentsCount = comments.filter((c) => c.status === 'Ativo').length;
-  const removedCommentsCount = comments.filter((c) => c.status === 'Removido').length;
-
   return (
     <div className="min-h-screen bg-[#f4f9f5] flex flex-col font-sans antialiased text-gray-800">
       {/* Header Bar */}
@@ -234,46 +147,6 @@ export const App: React.FC = () => {
 
       {/* Main View Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Direção Views */}
-        {currentUser.role === 'direcao' && (
-          <>
-            {activeTab === 'painel' && (
-              <DashboardView
-                studentCount={studentCount}
-                nutriCount={nutriCount}
-                activeCommentsCount={activeCommentsCount}
-                removedCommentsCount={removedCommentsCount}
-                onNavigate={(tab) => setActiveTab(tab)}
-              />
-            )}
-
-            {activeTab === 'cadastrar-aluno' && (
-              <StudentRegisterView onAddStudent={handleAddStudent} />
-            )}
-
-            {activeTab === 'cadastrar-nutricionista' && (
-              <NutritionistRegisterView onAddNutritionist={handleAddNutritionist} />
-            )}
-
-            {activeTab === 'gerenciar-usuarios' && (
-              <UserManagementView
-                users={users}
-                onToggleUserStatus={handleToggleUserStatus}
-                onViewUser={(user) => {
-                  setSelectedUserForModal(user);
-                  setIsProfileOpen(true);
-                }}
-              />
-            )}
-
-            {activeTab === 'fiscalizar-comentarios' && (
-              <CommentModerationView
-                comments={comments}
-                onRemoveComment={handleRemoveComment}
-              />
-            )}
-          </>
-        )}
 
         {/* Nutricionista Views */}
         {currentUser.role === 'nutricionista' && (
